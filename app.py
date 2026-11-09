@@ -1,244 +1,260 @@
-import streamlit as st
+import os
 import pandas as pd
-from datetime import datetime
+import streamlit as st
 
-st.set_page_config(page_title="Quản Lý Đơn Hàng Sales - Arirang", layout="wide")
+# Cấu hình giao diện trang web
+st.set_page_config(
+    page_title="Hệ Thống Quản Lý PO & Định Giá", page_icon="📦", layout="wide"
+)
 
-st.title("📦 Phần mềm Quản Lý PO & Bảng Giá Mực In - Arirang")
-st.markdown("---")
+# --- KHỞI TẠO DỮ LIỆU MẪU (Bảng giá và Khách hàng) ---
+# Trong thực tế, bạn có thể thay thế hoặc đọc từ file Excel/CSV
+if "price_db" not in st.session_state:
+  st.session_state.price_db = pd.DataFrame({
+      "Mã Khách Hàng": [
+          "KH_A",
+          "KH_A",
+          "KH_B",
+          "KH_B",
+          "KH_C",
+      ],
+      "Tên Khách Hàng": [
+          "Công ty TNHH Nhựa Miền Nam",
+          "Công ty TNHH Nhựa Miền Nam",
+          "Công ty CP Bao Bì Bình Minh",
+          "Công ty CP Bao Bì Bình Minh",
+          "Tập đoàn Nhựa Tân Tiến",
+      ],
+      "Mã Sản Phẩm": [
+          "PE_GOLD",
+          "PE_HR",
+          "PE_8365",
+          "PE_GOLD",
+          "PE_HR",
+      ],
+      "Tên Sản Phẩm": [
+          "Mực in PE Gold cao cấp",
+          "Mực in PE(HR) chịu nhiệt",
+          "Mực in PE 8365 đặc biệt",
+          "Mực in PE Gold cao cấp",
+          "Mực in PE(HR) chịu nhiệt",
+      ],
+      "Đơn Giá (VNĐ)": [150000, 140000, 155000, 148000, 142000],
+  })
 
-# 1. Khởi tạo Bảng giá chuẩn theo từng Khách hàng & Ngày báo giá
-if "df_price_list" not in st.session_state:
-    st.session_state.df_price_list = pd.DataFrame([
-        {"Tên Công Ty / Khách Hàng": "Lộ Đức", "Mã SP / Quy cách": "OPP 39", "ĐVT": "Kg", "Đơn giá chuẩn (VNĐ)": 75000.0, "Ngày Báo Giá": "15/01/2026"},
-        {"Tên Công Ty / Khách Hàng": "Lộ Đức", "Mã SP / Quy cách": "PE GOLD", "ĐVT": "Thùng", "Đơn giá chuẩn (VNĐ)": 139000.0, "Ngày Báo Giá": "01/02/2026"},
-        {"Tên Công Ty / Khách Hàng": "Vina Úc ĐN", "Mã SP / Quy cách": "OPP 39", "ĐVT": "Kg", "Đơn giá chuẩn (VNĐ)": 78000.0, "Ngày Báo Giá": "10/03/2026"},
-        {"Tên Công Ty / Khách Hàng": "Lộ Đức", "Mã SP / Quy cách": "OPP 94", "ĐVT": "Phuy", "Đơn giá chuẩn (VNĐ)": 74000.0, "Ngày Báo Giá": "20/01/2026"},
-        {"Tên Công Ty / Khách Hàng": "Lộ Đức", "Mã SP / Quy cách": "PE 8365 GOLD", "ĐVT": "Kg", "Đơn giá chuẩn (VNĐ)": 85000.0, "Ngày Báo Giá": "15/02/2026"},
-        {"Tên Công Ty / Khách Hàng": "Lộ Đức", "Mã SP / Quy cách": "OPP 62", "ĐVT": "Kg", "Đơn giá chuẩn (VNĐ)": 62000.0, "Ngày Báo Giá": "20/02/2026"}
+# --- QUẢN LÝ FILE LỊCH SỬ PO ---
+HISTORY_FILE = "po_history.csv"
+
+
+def load_po_history():
+  if os.path.exists(HISTORY_FILE):
+    return pd.read_csv(HISTORY_FILE)
+  else:
+    return pd.DataFrame(columns=[
+        "Mã PO",
+        "Khách hàng",
+        "Ngày tạo",
+        "Ngày giao",
+        "Tổng tiền (VNĐ)",
+        "Chi tiết sản phẩm",
     ])
 
-# 2. Session state lưu kết quả PO
-if "po_data" not in st.session_state:
-    st.session_state.po_data = None
 
-# Bảng sản phẩm mặc định trong PO
-if "df_po_items" not in st.session_state:
-    st.session_state.df_po_items = pd.DataFrame([
-        {"Mã SP / Quy cách": "OPP 39", "Số lượng": 340.0, "ĐVT": "Kg", "Đơn giá (VNĐ)": 75000.0}
-    ])
+def save_po_record(po_data):
+  df_history = load_po_history()
+  new_row = pd.DataFrame([po_data])
+  df_history = pd.concat([df_history, new_row], ignore_index=True)
+  df_history.to_csv(HISTORY_FILE, index=False)
 
-tab1, tab2 = st.tabs(["🚀 Tạo Đơn Hàng (PO)", "⚙️ Quản Lý & Cập Nhật Bảng Giá Theo Khách Hàng"])
 
-with tab1:
-    st.subheader("1. Thông tin chung đơn hàng")
-    col1, col2 = st.columns(2)
+# --- THANH BÊN (SIDEBAR) & BRANDING ---
+st.sidebar.image(
+    "logo.png", width=160
+)  # Nhớ đưa file logo.png lên cùng thư mục GitHub
+st.sidebar.title("Hệ Thống Sales PO")
+st.sidebar.markdown("---")
+menu_mode = st.sidebar.radio(
+    "Chức năng chính:", ["Tạo & Kiểm Tra PO", "Quản Lý Bảng Giá", "Lịch Sử PO"]
+)
 
-    with col1:
-        customer_name = st.text_input("Tên Khách Hàng / Công Ty", value="Lộ Đức", help="Tên công ty sẽ dùng để đối soát đơn giá chuẩn tương ứng!")
-        po_number = st.text_input("Mã số PO", value="PO-01")
-        order_date_val = st.date_input("Ngày nhận PO", value=datetime.today())
-        order_date_str = order_date_val.strftime("%d/%m/%Y")
-        
-    with col2:
-        delivery_date_val = st.date_input("Ngày yêu cầu giao hàng", value=datetime.today())
-        delivery_date_str = delivery_date_val.strftime("%d/%m/%Y")
-        sales_person = st.text_input("Sales phụ trách", value="Lê Thanh Duy")
+# --- GIAO DIỆN CHÍNH ---
 
-    st.markdown("---")
-    st.subheader("2. Danh sách sản phẩm trong PO (Nhập mã tự do & Dò giá tự động)")
-    st.markdown(f"🎯 *Đang đối soát danh mục báo giá cho công ty:* **{customer_name}** *(Bạn có thể gõ bất kỳ mã nào, hệ thống sẽ kiểm tra khi tạo PO)*")
+if menu_mode == "Tạo & Kiểm Tra PO":
+  st.title("📦 Tạo Đơn Đặt Hàng (Purchase Order)")
+  st.markdown(
+      "Nhập thông tin đơn hàng bên dưới. Hệ thống sẽ tự động đối chiếu giá và"
+      " kiểm tra mã sản phẩm theo cơ sở dữ liệu khách hàng."
+  )
 
-    # Lấy dữ liệu giá theo khách hàng
-    df_price_filtered = st.session_state.df_price_list[
-        st.session_state.df_price_list["Tên Công Ty / Khách Hàng"].str.strip().str.lower() == customer_name.strip().lower()
-    ]
-    
-    price_dict = dict(zip(df_price_filtered["Mã SP / Quy cách"], df_price_filtered["Đơn giá chuẩn (VNĐ)"])) if not df_price_filtered.empty else {}
-    unit_dict = dict(zip(df_price_filtered["Mã SP / Quy cách"], df_price_filtered["ĐVT"])) if not df_price_filtered.empty else {}
-
-    # Chuyển cột Mã SP thành TextColumn để cho phép nhập chữ/mã bất kỳ không bị ép chọn
-    edited_df = st.data_editor(
-        st.session_state.df_po_items,
-        num_rows="dynamic",
-        use_container_width=True,
-        key="po_table",
-        column_config={
-            "Mã SP / Quy cách": st.column_config.TextColumn(
-                "Mã SP / Quy cách",
-                required=True,
-                help="Nhập mã sản phẩm do khách gửi (có thể gõ mã bất kỳ)"
-            ),
-            "ĐVT": st.column_config.SelectboxColumn(
-                "Đơn vị tính",
-                options=["Kg", "Thùng", "Phuy", "Lon"],
-                required=True
-            ),
-            "Số lượng": st.column_config.NumberColumn(min_value=0.0, step=1.0, format="%,.0f"),
-            "Đơn giá (VNĐ)": st.column_config.NumberColumn(min_value=0.0, step=1000.0, format="%,.0f")
-        }
+  col1, col2 = st.columns(2)
+  with col1:
+    po_number = st.text_input("Mã PO (Ví dụ: PO-2026-001)")
+    # Lấy danh sách khách hàng duy nhất
+    list_customers = st.session_state.price_db["Tên Khách Hàng"].unique()
+    selected_customer = st.selectbox(
+        "Chọn Khách Hàng", options=list_customers
     )
 
-    # Tự động load đơn giá nếu mã khớp với bảng giá của khách hàng
-    for idx, row in edited_df.iterrows():
-        code = str(row["Mã SP / Quy cách"]).strip()
-        if code in price_dict:
-            current_price = row["Đơn giá (VNĐ)"]
-            if pd.isna(current_price) or current_price == 0.0 or current_price != price_dict[code]:
-                edited_df.loc[idx, "Đơn giá (VNĐ)"] = price_dict[code]
-            if code in unit_dict and (pd.isna(row["ĐVT"]) or row["ĐVT"] == ""):
-                edited_df.loc[idx, "ĐVT"] = unit_dict[code]
+  with col2:
+    po_date = st.date_input("Ngày tạo PO")
+    delivery_date = st.date_input("Ngày giao hàng dự kiến")
 
-    st.session_state.df_po_items = edited_df
+  st.markdown("### Chi tiết sản phẩm đặt mua")
 
-    note = st.text_area("Ghi chú đặc biệt cho phòng kế hoạch", value="Giao gấp, kiểm tra kỹ chất lượng màu trước khi xuất kho.")
+  # Lọc danh sách sản phẩm theo khách hàng đã chọn
+  valid_products_df = st.session_state.price_db[
+      st.session_state.price_db["Tên Khách Hàng"] == selected_customer
+  ]
 
-    if st.button("🚀 Tạo và Hiển thị Giao diện PO Hoàn Chỉnh", type="primary"):
-        if not customer_name or not po_number or edited_df.empty:
-            st.error("Vui lòng điền Tên khách hàng, Mã số PO và nhập ít nhất 1 sản phẩm!")
-        else:
-            # --- KIỂM TRA LỖI: RÀ SOÁT TÍNH HỢP LỆ CỦA MÃ SẢN PHẨM ---
-            has_error = False
-            error_messages = []
+  # Tạo bảng nhập liệu sản phẩm (Data Editor cho phép nhập linh hoạt)
+  if "cart_df" not in st.session_state:
+    st.session_state.cart_df = pd.DataFrame(
+        columns=["Mã Sản Phẩm", "Số Lượng", "Đơn Giá Thỏa Thuận"]
+    )
 
-            # Lấy danh sách toàn bộ mã hợp lệ của khách hàng này
-            valid_codes_for_customer = df_price_filtered["Mã SP / Quy cách"].tolist()
+  # Form nhập sản phẩm nhanh
+  with st.form("add_item_form"):
+    c1, c2, c3 = st.columns(3)
+    with c1:
+      # Cho phép nhập tự do mã sản phẩm theo yêu cầu
+      input_code = st.text_input(
+          "Mã sản phẩm", placeholder="Nhập mã (VD: PE_GOLD)"
+      )
+    with c2:
+      input_qty = st.number_input(
+          "Số lượng", min_value=1, value=100, step=10
+      )
+    with c3:
+      input_price = st.number_input(
+          "Đơn giá đề xuất (VNĐ)", min_value=0.0, value=0.0, step=1000.0
+      )
 
-            for index, row in edited_df.iterrows():
-                code = str(row["Mã SP / Quy cách"]).strip()
-                qty = float(row["Số lượng"]) if not pd.isna(row["Số lượng"]) else 0.0
-                
-                if code and qty > 0:
-                    # Kiểm tra nếu mã gõ vào không có trong danh mục báo giá của công ty đó
-                    if code not in valid_codes_for_customer:
-                        has_error = True
-                        error_messages.append(f"❌ Lỗi dòng {index + 1}: Công ty **'{customer_name}'** không có báo giá cho mã sản phẩm **'{code}'**!")
-
-            if has_error:
-                for err in error_messages:
-                    st.error(err)
-                st.warning("⚠️ Hệ thống đã chặn tạo PO do phát hiện mã sản phẩm không hợp lệ hoặc không có báo giá cho khách hàng này!")
-            else:
-                items = []
-                subtotal = 0.0
-                
-                for index, row in edited_df.iterrows():
-                    code = str(row["Mã SP / Quy cách"]).strip()
-                    qty = float(row["Số lượng"]) if not pd.isna(row["Số lượng"]) else 0.0
-                    unit = str(row["ĐVT"])
-                    price = float(row["Đơn giá (VNĐ)"]) if not pd.isna(row["Đơn giá (VNĐ)"]) else 0.0
-                    
-                    if code and qty > 0:
-                        amount = qty * price
-                        subtotal += amount
-                        items.append({
-                            "Mã SP / Quy cách": code,
-                            "Số lượng": f"{qty:,.0f}",
-                            "ĐVT": unit,
-                            "Đơn giá (VNĐ)": f"{price:,.0f}",
-                            "Thành tiền (VNĐ)": f"{amount:,.0f}"
-                        })
-                        
-                vat_amount = subtotal * 0.08
-                grand_total = subtotal + vat_amount
-                    
-                st.session_state.po_data = {
-                    "customer": customer_name,
-                    "po_no": po_number,
-                    "order_date": order_date_str,
-                    "delivery_date": delivery_date_str,
-                    "sales": sales_person,
-                    "items": items,
-                    "subtotal": f"{subtotal:,.0f}",
-                    "vat": f"{vat_amount:,.0f}",
-                    "grand_total": f"{grand_total:,.0f}",
-                    "note": note
-                }
-                st.success(f"Đã xử lý thành công đơn hàng {po_number} cho khách hàng {customer_name}!")
-
-    # --- KHUNG HIỂN THỊ GIAO DIỆN PO CHUẨN CHỈNH ---
-    if st.session_state.po_data is not None:
-        data = st.session_state.po_data
-        
-        st.markdown("---")
-        st.markdown(
-            """
-            <style>
-            .po-container {
-                border: 2px solid #ccc;
-                padding: 30px;
-                border-radius: 10px;
-                background-color: #fafafa;
-                color: #000;
-                font-family: Arial, sans-serif;
-            }
-            .po-header {
-                text-align: center;
-                font-weight: bold;
-                font-size: 22px;
-                margin-bottom: 20px;
-                color: #1f77b4;
-            }
-            .po-summary {
-                text-align: right;
-                font-size: 15px;
-                line-height: 1.6;
-            }
-            </style>
-            """,
-            unsafe_allow_html=True
+    submitted = st.form_submit_button("➕ Thêm vào đơn hàng")
+    if submitted:
+      if input_code:
+        new_item = pd.DataFrame({
+            "Mã Sản Phẩm": [input_code],
+            "Số Lượng": [input_qty],
+            "Đơn Giá Thỏa Thuận": [input_price],
+        })
+        st.session_state.cart_df = pd.concat(
+            [st.session_state.cart_df, new_item], ignore_index=True
         )
-        
-        with st.container():
-            st.markdown('<div class="po-container">', unsafe_allow_html=True)
-            st.markdown('<div class="po-header">PHIẾU XÁC NHẬN ĐƠN HÀNG (PO) <br><span style="font-size:14px; color:#555;">Gửi Phòng Kế Hoạch & Tài Chính</span></div>', unsafe_allow_html=True)
-            
-            col_a, col_b = st.columns(2)
-            with col_a:
-                st.markdown(f"**Mã số PO:** {data['po_no']}")
-                st.markdown(f"**Khách hàng:** {data['customer']}")
-                st.markdown(f"**Ngày nhận PO:** {data['order_date']}")
-            with col_b:
-                st.markdown(f"**Sales phụ trách:** {data['sales']}")
-                st.markdown(f"**Ngày yêu cầu giao:** {data['delivery_date']}")
-                
-            st.markdown("---")
-            st.markdown("**Chi tiết danh sách sản phẩm / mã mực đặt hàng:**")
-            
-            df_display = pd.DataFrame(data['items'])
-            st.dataframe(df_display, use_container_width=True, hide_index=True)
-            
-            st.markdown(f"""
-            <div class="po-summary">
-                <b>Cộng tiền hàng:</b> {data['subtotal']} VNĐ<br>
-                <b>Thuế VAT (8%):</b> {data['vat']} VNĐ<br>
-                <b><span style="font-size: 18px; color: #d9534f;">Tổng cộng thanh toán (Gồm VAT):</span></b> <span style="font-size: 18px; color: #d9534f; font-weight: bold;">{data['grand_total']} VNĐ</span>
-            </div>
-            """, unsafe_allow_html=True)
-            
-            st.markdown("<br><b>Ghi chú đặc biệt:</b>", unsafe_allow_html=True)
-            st.info(data['note'] if data['note'] else "Không có ghi chú đặc biệt.")
-            
-            st.markdown('</div>', unsafe_allow_html=True)
+        st.success(f"Đã thêm mã sản phẩm: {input_code}")
+      else:
+        st.warning("Vui lòng nhập mã sản phẩm!")
 
-with tab2:
-    st.subheader("⚙️ Quản lý & Cập nhật danh mục giá theo từng Khách Hàng")
-    st.markdown("Quản lý chi tiết giá bán từng mã mực theo từng công ty và thời điểm báo giá.")
-    
-    updated_price_list = st.data_editor(
-        st.session_state.df_price_list,
-        num_rows="dynamic",
-        use_container_width=True,
-        key="price_list_table",
-        column_config={
-            "Tên Công Ty / Khách Hàng": st.column_config.TextColumn("Tên Công Ty / Khách Hàng", required=True),
-            "Mã SP / Quy cách": st.column_config.TextColumn("Mã SP / Quy cách", required=True),
-            "ĐVT": st.column_config.SelectboxColumn("Đơn vị tính", options=["Kg", "Thùng", "Phuy", "Lon"], required=True),
-            "Đơn giá chuẩn (VNĐ)": st.column_config.NumberColumn("Đơn giá chuẩn (VNĐ)", min_value=0.0, step=1000.0, format="%,.0f"),
-            "Ngày Báo Giá": st.column_config.TextColumn("Ngày Báo Giá (dd/mm/yyyy)", required=True, help="Nhập định dạng dd/mm/yyyy")
-        }
+  # Hiển thị danh sách sản phẩm hiện tại trong giỏ hàng
+  if not st.session_state.cart_df.empty:
+    st.subheader("Danh sách sản phẩm trong PO hiện tại:")
+    edited_cart = st.data_editor(
+        st.session_state.cart_df, use_container_width=True, num_rows="dynamic"
     )
-    
-    if st.button("💾 Lưu Cập Nhật Bảng Giá Khách Hàng"):
-        st.session_state.df_price_list = updated_price_list
-        st.success("Đã cập nhật bảng giá chi tiết theo từng khách hàng thành công!")
+    st.session_state.cart_df = edited_cart
+
+    if st.button("🚀 Kiểm Tra & Xác Nhận Tạo PO"):
+      if not po_number:
+        st.error("Vui lòng nhập Mã PO trước khi xác nhận!")
+      else:
+        # Kiểm tra validation mã sản phẩm chéo với database giá của khách hàng
+        error_flag = False
+        total_amount = 0
+        validated_items = []
+
+        for index, row in st.session_state.cart_df.iterrows():
+          code = row["Mã Sản Phẩm"]
+          qty = row["Số Lượng"]
+          price = row["Đơn Giá Thỏa Thuận"]
+
+          # Tra cứu trong database giá của khách hàng này
+          match = valid_products_df[valid_products_df["Mã Sản Phẩm"] == code]
+
+          if match.empty:
+            st.error(
+                f"❌ Lỗi: Mã sản phẩm **'{code}'** không hợp lệ hoặc không nằm"
+                f" trong bảng giá đã đăng ký của khách hàng"
+                f" **{selected_customer}**!"
+            )
+            error_flag = True
+            break
+          else:
+            total_amount += qty * price
+            validated_items.append(f"{code} (SL: {qty})")
+
+        if not error_flag:
+          st.success(
+              "🎉 Tất cả mã sản phẩm hợp lệ! PO đã được tạo và lưu thành công."
+          )
+          st.info(f"💰 Tổng giá trị đơn hàng: **{total_amount:,.0f} VNĐ**")
+
+          # Lưu vào lịch sử PO
+          po_record = {
+              "Mã PO": po_number,
+              "Khách hàng": selected_customer,
+              "Ngày tạo": po_date.strftime("%d/%m/%Y"),
+              "Ngày giao": delivery_date.strftime("%d/%m/%Y"),
+              "Tổng tiền (VNĐ)": total_amount,
+              "Chi tiết sản phẩm": ", ".join(validated_items),
+          }
+          save_po_record(po_record)
+
+          # Reset giỏ hàng sau khi tạo xong
+          st.session_state.cart_df = pd.DataFrame(
+              columns=["Mã Sản Phẩm", "Số Lượng", "Đơn Giá Thỏa Thuận"]
+          )
+
+  if st.button("🔄 Làm mới đơn hàng"):
+    st.session_state.cart_df = pd.DataFrame(
+        columns=["Mã Sản Phẩm", "Số Lượng", "Đơn Giá Thỏa Thuận"]
+    )
+    st.rerun()
+
+elif menu_mode == "Quản Lý Bảng Giá":
+  st.title("📋 Quản Lý Bảng Giá Khách Hàng")
+  st.markdown(
+      "Dưới đây là cơ sở dữ liệu giá chuẩn đang áp dụng cho từng khách hàng:"
+  )
+
+  # Cho phép chỉnh sửa trực tiếp bảng giá trên giao diện
+  edited_price_db = st.data_editor(
+      st.session_state.price_db, use_container_width=True, num_rows="dynamic"
+  )
+  st.session_state.price_db = edited_price_db
+  st.success("Mọi thay đổi trong bảng giá sẽ được áp dụng ngay lập tức.")
+
+elif menu_mode == "Lịch Sử PO":
+  st.title("📜 Tra Cứu Lịch Sử Đơn Hàng (PO)")
+  st.markdown("Xem lại toàn bộ danh sách các đơn hàng đã được tạo trước đó.")
+
+  df_history = load_po_history()
+
+  if df_history.empty:
+    st.info("Chưa có lịch sử đơn hàng nào được tạo.")
+  else:
+    # Tìm kiếm nhanh
+    search_query = st.text_input(
+        "🔍 Nhập Mã PO hoặc tên khách hàng để tìm kiếm:"
+    )
+
+    if search_query:
+      filtered_df = df_history[
+          df_history["Mã PO"]
+          .astype(str)
+          .str.contains(search_query, case=False, na=False)
+          | df_history["Khách hàng"]
+          .astype(str)
+          .str.contains(search_query, case=False, na=False)
+      ]
+    else:
+      filtered_df = df_history
+
+    st.dataframe(filtered_df, use_container_width=True)
+
+    # Nút tải xuống file CSV lịch sử
+    csv_data = filtered_df.to_csv(index=False).encode("utf-8")
+    st.download_button(
+        label="📥 Tải xuống danh sách lịch sử (CSV)",
+        data=csv_data,
+        file_name="lich_su_po_doanh_nghiep.csv",
+        mime="text/csv",
+    )
